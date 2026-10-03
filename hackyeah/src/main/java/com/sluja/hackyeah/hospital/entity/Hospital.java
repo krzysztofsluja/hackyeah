@@ -12,6 +12,8 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -54,7 +56,8 @@ public class Hospital {
     @ElementCollection
     @CollectionTable(name = "hospital_procedures", joinColumns = @JoinColumn(name = "hospital_id"))
     @Column(name = "procedures")
-    private Set<String> procedures;
+    @Enumerated(EnumType.STRING)
+    private Set<Procedure> procedures;
 
     @OneToMany(mappedBy = "hospital", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<HospitalFlag> flags;
