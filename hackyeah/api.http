@@ -1,0 +1,131 @@
+### Pełny przepływ zgłoszenia: fala 1 -> akceptacja -> 409 przy drugiej akceptacji
+# Scenariusz udaru z docs/koncepcja.md. Szpital 1 = "Dolina" (powiatowy, bez neurologa).
+# Uruchom aplikację na porcie 8090 i wykonuj zapytania po kolei.
+
+@host = http://localhost:8090
+
+### 1. Lekarz składa zgłoszenie - system liczy ranking i wysyła falę 1 (top 3)
+# @name createReferral
+POST {{host}}/api/referrals?limit=8
+Content-Type: application/json
+
+{
+  "targetSpecialty": "NEUROLOGY",
+  "requiredProcedures": ["CT", "THROMBECTOMY"],
+  "urgency": "TIME_CRITICAL",
+  "patientState": "STABLE",
+  "requiresIsolation": false,
+  "note": "72 l., objawy od 2 h",
+  "originHospitalId": 1
+}
+
+> {%
+    client.global.set("referralId", response.body.id);
+    client.global.set("requestA", response.body.requests[0].requestId);
+    client.global.set("requestB", response.body.requests[1].requestId);
+    client.global.set("hospitalA", response.body.requests[0].hospitalId);
+    client.test("wysłano falę 1", function () {
+        client.assert(response.status === 201, "oczekiwano 201");
+        client.assert(response.body.wave === 1, "oczekiwano fali 1");
+        client.assert(response.body.requests.length === 3, "oczekiwano 3 zapytań");
+    });
+%}
+
+### 2. Lekarz widzi stan zgłoszenia: fale, odpowiedzi i pełny ranking z powodami odrzuceń
+# Uwaga: "contacts" jest tu PUSTE - dopóki zgłoszenie jest OPEN, nie wydajemy numerów,
+# żeby lekarz nie zaczął obdzwaniać rankingu (to jest właśnie to, co zastępują fale).
+GET {{host}}/api/referrals/{{referralId}}
+
+### 3. Szpital przyjmujący zagląda do swojej skrzynki
+GET {{host}}/api/hospitals/{{hospitalA}}/inbox
+
+### 4. Jeden ze szpitali odmawia z powodem - powód zasila ranking i dashboard
+POST {{host}}/api/requests/{{requestB}}/decline
+Content-Type: application/json
+
+{ "reason": "NO_BEDS" }
+
+### 5. Inny szpital przyjmuje - pozostałe PENDING lecą na CANCELLED
+POST {{host}}/api/requests/{{requestA}}/accept
+
+> {%
+    client.test("pierwsza akceptacja wygrywa i otwiera kontakt lekarz-lekarz", function () {
+        client.assert(response.status === 200, "oczekiwano 200");
+        client.assert(response.body.request.status === "ACCEPTED", "oczekiwano ACCEPTED");
+        client.assert(response.body.acceptingHospital.dutyPhone, "brak numeru szpitala przyjmującego");
+        client.assert(response.body.originHospital.dutyPhone, "brak numeru szpitala zlecającego");
+    });
+%}
+
+### 6. Druga akceptacja tego samego zgłoszenia - 409 Conflict, "już zrealizowane"
+POST {{host}}/api/requests/{{requestA}}/accept
+
+> {%
+    client.test("druga akceptacja przegrywa", function () {
+        client.assert(response.status === 409, "oczekiwano 409 Conflict");
+    });
+%}
+
+### 7. Stan końcowy: ACCEPTED + acceptedHospitalId, reszta CANCELLED/DECLINED
+# Teraz "contacts" ma dwa wpisy: szpital przyjmujący i zlecający (kontakt lekarz-lekarz).
+GET {{host}}/api/referrals/{{referralId}}
+
+
+### --- Przepływ eskalacji: nikt nie odpowiada, fale się wyczerpują ---
+# Ustaw app.waves.time-scale=20 w application.properties, żeby fala wygasała w sekundach,
+# a scheduler (co 2 s) przeszedł OPEN -> fala 2 -> ... -> ESCALATED bez czekania minut.
+
+### 8. Zgłoszenie, na które nikt nie odpowie
+# @name escalating
+POST {{host}}/api/referrals
+Content-Type: application/json
+
+{
+  "targetSpecialty": "CARDIOLOGY",
+  "requiredProcedures": ["PCI"],
+  "urgency": "TIME_CRITICAL",
+  "patientState": "UNSTABLE",
+  "requiresIsolation": false,
+  "originHospitalId": 1
+}
+
+> {% client.global.set("escalatingId", response.body.id); %}
+
+### 9. Odczekaj, aż kolejne fale wygasną, i sprawdź status (powtarzaj)
+# Po ESCALATED "contacts" zawiera numery dyżurnych całego rankingu - obdzwanianie
+# staje się wtedy świadomym fallbackiem, a sprawę przejmuje koordynator.
+GET {{host}}/api/referrals/{{escalatingId}}
+
+
+### --- Przypadki błędne ---
+
+### 10. Brak wymaganego pola -> 400 z mapą fieldErrors
+POST {{host}}/api/referrals
+Content-Type: application/json
+
+{
+  "targetSpecialty": "NEUROLOGY",
+  "patientState": "STABLE",
+  "originHospitalId": 1
+}
+
+### 11. Nieznany szpital zlecający -> 400
+POST {{host}}/api/referrals
+Content-Type: application/json
+
+{
+  "targetSpecialty": "NEUROLOGY",
+  "urgency": "PLANNED",
+  "patientState": "STABLE",
+  "requiresIsolation": false,
+  "originHospitalId": 999
+}
+
+### 12. Odmowa bez powodu -> 400
+POST {{host}}/api/requests/{{requestA}}/decline
+Content-Type: application/json
+
+{}
+
+### 13. Nieznane zapytanie -> 404
+POST {{host}}/api/requests/999999/accept
