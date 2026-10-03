@@ -146,9 +146,9 @@
 <script th:src="@{/js/coordinator-map.js}"></script>
 <script th:inline="javascript">
     document.addEventListener('DOMContentLoaded', () => {
-        poll(/*[[@{/fragments/coordinator/actions}]]*/ '/fragments/coordinator/actions', 'coordinator-actions', 3000);
-        poll(/*[[@{/fragments/coordinator/flow}]]*/ '/fragments/coordinator/flow', 'coordinator-flow', 3000);
-        poll(/*[[@{/fragments/coordinator/hospitals}]]*/ '/fragments/coordinator/hospitals', 'coordinator-hospitals', 3000);
+        poll(/*[[@{/fragments/coordinator/actions}]]*/ '/fragments/coordinator/actions', 'coordinator-actions');
+        poll(/*[[@{/fragments/coordinator/flow}]]*/ '/fragments/coordinator/flow', 'coordinator-flow');
+        poll(/*[[@{/fragments/coordinator/hospitals}]]*/ '/fragments/coordinator/hospitals', 'coordinator-hospitals');
     });
 </script>
 </body>

@@ -3,7 +3,6 @@
 // Later, an SSE occupancy.changed / flag.changed event can call refresh() (debounced) instead of the interval.
 (function () {
     const KRAKOW = [50.06, 19.95];
-    const REFRESH_MS = 3000;
 
     document.addEventListener('DOMContentLoaded', () => {
         const container = document.getElementById('map');
@@ -60,7 +59,7 @@
         }
 
         refresh();
-        setInterval(refresh, REFRESH_MS);
+        setInterval(refresh, POLL_INTERVAL_MS);
     });
 
     // Colours come from the CSS variables, thresholds from the server (h.level).
