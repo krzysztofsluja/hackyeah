@@ -6,45 +6,158 @@
 <main class="page">
     <div th:replace="~{layout :: flash}"></div>
 
-    <h1 th:text="${hospital.name}">Szpital</h1>
-    <p class="muted">
-        <span th:text="${hospital.district}">Dzielnica</span> ·
-        dyżurny <span th:text="${hospital.dutyPhone}">+48</span>
-    </p>
-
-    <div class="grid-2">
-        <section class="card">
-            <h2>Obłożenie</h2>
-            <p class="big" th:classappend="'level-' + ${#strings.toLowerCase(hospital.occupancyLevel())}">
-                <span th:text="${hospital.occupancyPercent()} + '%'">80%</span>
+    <div class="page-head">
+        <div>
+            <h1 th:text="${hospital.name}">Szpital</h1>
+            <p class="muted">
+                <span th:text="${hospital.district}">Dzielnica</span> ·
+                dyżurny <span th:text="${hospital.dutyPhone}">+48</span>
             </p>
-            <p class="muted" th:text="${hospital.occupiedBeds + ' / ' + hospital.totalBeds + ' łóżek zajętych'}">80 / 100</p>
-
-            <h3>Specjalności</h3>
-            <ul class="tags">
-                <li th:each="s : ${hospital.specialties}" th:text="#{'specialty.' + ${s}}">Neurologia</li>
-            </ul>
-            <h3>Procedury i sprzęt</h3>
-            <ul class="tags">
-                <li th:each="p : ${hospital.procedures}" th:text="#{'procedure.' + ${p}}">TK</li>
-            </ul>
-        </section>
-
-        <section class="card">
-            <h2>Aktywne flagi</h2>
-            <ul class="flags" th:unless="${#lists.isEmpty(hospital.flags)}">
-                <li th:each="f : ${hospital.flags}">
-                    <strong th:text="#{'flag.' + ${f.type}}">Flaga</strong>
-                    <span class="muted" th:text="'do ' + ${#temporals.format(f.validUntil, 'HH:mm')}">do 14:00</span>
-                </li>
-            </ul>
-            <p class="muted" th:if="${#lists.isEmpty(hospital.flags)}">Brak aktywnych flag.</p>
-        </section>
+        </div>
+        <div class="head-stat">
+            <span class="muted small">obłożenie</span>
+            <span class="badge big-badge" th:classappend="'level-' + ${#strings.toLowerCase(hospital.occupancyLevel())}"
+                  th:text="${hospital.occupancyPercent()} + '%'">80%</span>
+            <span class="muted small" th:text="${hospital.occupiedBeds + ' / ' + hospital.totalBeds + ' łóżek'}">80 / 100</span>
+        </div>
     </div>
 
-    <section class="card placeholder">
-        Skrzynka zapytań i decyzje „przyjmuję / odmawiam” pojawią się w etapie 2.
-    </section>
+    <div class="layout-main-side">
+        <div id="hospital-requests" th:fragment="requests">
+            <th:block th:with="pending=${requests.?[pending]}, answered=${requests.?[!pending]}">
+
+                <h2>Zapytania do decyzji <span class="count" th:text="${#lists.size(pending)}">1</span></h2>
+                <section class="card placeholder" th:if="${#lists.isEmpty(pending)}">
+                    Brak otwartych zapytań. Nowe pojawią się tutaj automatycznie.
+                </section>
+
+                <section class="card request" th:each="r : ${pending}"
+                         th:classappend="'urgency-' + ${#strings.toLowerCase(r.urgency)}">
+                    <div class="request-head">
+                        <span class="urgency" th:text="#{'urgency.' + ${r.urgency}}">Czas krytyczny</span>
+                        <span class="muted small">
+                            zgłoszenie <span th:text="'#' + ${r.referralId}">#1</span> · fala <span th:text="${r.wave}">1</span>
+                        </span>
+                        <span class="countdown" th:text="${r.secondsToDeadline} + ' s'">30 s</span>
+                    </div>
+
+                    <p class="request-profile">
+                        <strong th:text="#{'specialty.' + ${r.targetSpecialty}}">Neurologia</strong>
+                        <th:block th:each="p : ${r.requiredProcedures}"> · <span th:text="#{'procedure.' + ${p}}">TK</span></th:block>
+                    </p>
+                    <p class="muted">
+                        <span th:text="#{'patientState.' + ${r.patientState}}">Stabilny</span>
+                        · <span th:text="${r.requiresIsolation} ? 'wymaga izolacji' : 'bez izolacji'">bez izolacji</span>
+                        <th:block th:if="${r.note}"> · „<span th:text="${r.note}">opis</span>”</th:block>
+                    </p>
+                    <p class="muted small">
+                        Od: <span th:text="${r.originHospitalName}">Szpital Powiatowy</span>
+                        <th:block th:if="${r.travelMinutes}"> · dojazd ok. <span th:text="${r.travelMinutes}">38</span> min</th:block>
+                    </p>
+
+                    <div class="actions">
+                        <form method="post" th:action="@{/hospital/{h}/requests/{r}/accept(h=${hospital.id},r=${r.requestId})}">
+                            <button type="submit" class="btn btn-ok btn-lg">Przyjmuję</button>
+                        </form>
+                        <div class="decline">
+                            <span class="muted small">Odmawiam:</span>
+                            <form method="post" th:each="reason : ${declineReasons}"
+                                  th:action="@{/hospital/{h}/requests/{r}/decline(h=${hospital.id},r=${r.requestId})}">
+                                <input type="hidden" name="reason" th:value="${reason}">
+                                <button type="submit" class="btn btn-ghost" th:text="#{'declineReason.' + ${reason}}">Brak łóżek</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <th:block th:unless="${#lists.isEmpty(answered)}">
+                    <h2>Historia</h2>
+                    <section class="card">
+                        <table class="table">
+                            <thead>
+                            <tr><th>Zgłoszenie</th><th>Profil</th><th>Wynik</th></tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="r : ${answered}" th:classappend="${r.status.name() == 'ACCEPTED'} ? 'row-accepted'">
+                                <td>
+                                    <span th:text="'#' + ${r.referralId}">#1</span>
+                                    <div class="muted small" th:text="${#temporals.format(r.sentAt, 'HH:mm:ss')}">03:00</div>
+                                </td>
+                                <td>
+                                    <span th:text="#{'specialty.' + ${r.targetSpecialty}}">Neurologia</span>
+                                    · <span th:text="#{'urgency.' + ${r.urgency}}">Czas krytyczny</span>
+                                </td>
+                                <td th:switch="${r.status.name()}">
+                                    <th:block th:case="'ACCEPTED'">
+                                        <span class="status status-accepted">Przyjęty</span>
+                                        <div class="small">
+                                            Lekarz zlecający (<span th:text="${r.originHospitalName}">Szpital</span>):
+                                            <a class="phone" th:href="'tel:' + ${#strings.replace(r.originDutyPhone, ' ', '')}"
+                                               th:text="${r.originDutyPhone}">+48</a>
+                                        </div>
+                                    </th:block>
+                                    <th:block th:case="'CANCELLED'">
+                                        <span class="status status-cancelled">Już zrealizowane</span>
+                                        <div class="muted small">przyjął inny szpital</div>
+                                    </th:block>
+                                    <th:block th:case="'DECLINED'">
+                                        <span class="status status-declined">Odmowa</span>
+                                        <div class="small" th:text="#{'declineReason.' + ${r.declineReason}}">Brak łóżek</div>
+                                    </th:block>
+                                    <span th:case="*" class="status" th:classappend="'status-' + ${#strings.toLowerCase(r.status)}"
+                                          th:text="#{'requestStatus.' + ${r.status}}">Brak odpowiedzi</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </section>
+                </th:block>
+            </th:block>
+        </div>
+
+        <aside>
+            <section class="card">
+                <h2>Flagi dostępności</h2>
+                <p class="muted small">Jedno kliknięcie, flaga wygasa sama po czasie.</p>
+                <ul class="flag-toggles">
+                    <li th:each="type : ${flagTypes}"
+                        th:with="active=${hospital.flag(type)}"
+                        th:classappend="${active != null} ? 'on'">
+                        <div>
+                            <strong th:text="#{'flag.' + ${type}}">Flaga</strong>
+                            <div class="muted small" th:if="${active != null}"
+                                 th:text="'aktywna do ' + ${#temporals.format(active.validUntil, 'HH:mm')}">aktywna do 14:00</div>
+                        </div>
+                        <form method="post" th:action="@{/hospital/{h}/flags/{t}(h=${hospital.id},t=${type})}">
+                            <input type="hidden" name="active" th:value="${active == null}">
+                            <button type="submit" class="btn btn-ghost"
+                                    th:text="${active == null} ? 'Włącz' : 'Wyłącz'">Włącz</button>
+                        </form>
+                    </li>
+                </ul>
+            </section>
+
+            <section class="card">
+                <h2>Profil placówki</h2>
+                <h3>Specjalności</h3>
+                <ul class="tags">
+                    <li th:each="s : ${hospital.specialties}" th:text="#{'specialty.' + ${s}}">Neurologia</li>
+                </ul>
+                <h3>Procedury i sprzęt</h3>
+                <ul class="tags">
+                    <li th:each="p : ${hospital.procedures}" th:text="#{'procedure.' + ${p}}">TK</li>
+                </ul>
+                <h3>Izolacja</h3>
+                <p th:text="${hospital.isolationCapable} ? 'Tak' : 'Nie'">Tak</p>
+            </section>
+        </aside>
+    </div>
 </main>
+
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        poll(/*[[@{/fragments/hospital/{id}/inbox(id=${hospital.id})}]]*/ '/fragments/hospital/1/inbox', 'hospital-requests', 2000);
+    });
+</script>
 </body>
 </html>

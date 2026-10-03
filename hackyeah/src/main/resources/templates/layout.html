@@ -32,7 +32,8 @@
     </form>
 </header>
 
-<div th:fragment="flash" th:if="${flash}" class="flash" th:text="${flash}">Komunikat</div>
+<div th:fragment="flash" th:if="${flash}" class="flash" th:classappend="${flashType} ? 'flash-' + ${flashType}"
+     th:text="${flash}">Komunikat</div>
 
 </body>
 </html>
