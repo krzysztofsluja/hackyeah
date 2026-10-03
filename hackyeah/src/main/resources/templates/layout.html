@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${title} + ' · ' + #{app.name}">Hoscom</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+    <script th:src="@{/js/poll.js}" defer></script>
+</head>
+<body>
+
+<header th:fragment="header(role)" class="topbar">
+    <a class="brand" th:href="@{/}" th:text="#{app.name}">Hoscom</a>
+
+    <nav class="roles" aria-label="Przełącznik ról">
+        <a th:href="@{/doctor}" th:classappend="${role == 'doctor'} ? 'active'">Lekarz</a>
+        <label class="hospital-switch" th:classappend="${role == 'hospital'} ? 'active'">
+            <span>Szpital</span>
+            <select onchange="if (this.value) location.href = this.value">
+                <option value="">wybierz…</option>
+                <option th:each="h : ${allHospitals}"
+                        th:value="@{/hospital/{id}(id=${h.id})}"
+                        th:selected="${role == 'hospital' and hospital != null and hospital.id == h.id}"
+                        th:text="${h.name + ' (' + h.district + ')'}">Szpital</option>
+            </select>
+        </label>
+        <a th:href="@{/coordinator}" th:classappend="${role == 'coordinator'} ? 'active'">Koordynator</a>
+    </nav>
+
+    <form class="reset" method="post" th:action="@{/demo/reset}">
+        <button type="submit" class="btn btn-ghost">Reset demo</button>
+    </form>
+</header>
+
+<div th:fragment="flash" th:if="${flash}" class="flash" th:text="${flash}">Komunikat</div>
+
+</body>
+</html>

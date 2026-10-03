@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Koordynator')}"></head>
+<body>
+<header th:replace="~{layout :: header('coordinator')}"></header>
+<main class="page">
+    <div th:replace="~{layout :: flash}"></div>
+
+    <h1>Sytuacja w regionie</h1>
+
+    <section class="card">
+        <h2>Szpitale</h2>
+        <table class="table">
+            <thead>
+            <tr>
+                <th>Szpital</th>
+                <th>Dzielnica</th>
+                <th class="num">Łóżka</th>
+                <th class="num">Obłożenie</th>
+                <th>Flagi</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="h : ${allHospitals}">
+                <td><a th:href="@{/hospital/{id}(id=${h.id})}" th:text="${h.name}">Szpital</a></td>
+                <td th:text="${h.district}">Dzielnica</td>
+                <td class="num" th:text="${h.occupiedBeds + ' / ' + h.totalBeds}">80 / 100</td>
+                <td class="num">
+                    <span class="badge" th:classappend="'level-' + ${#strings.toLowerCase(h.occupancyLevel())}"
+                          th:text="${h.occupancyPercent()} + '%'">80%</span>
+                </td>
+                <td>
+                    <span th:each="f : ${h.flags}" class="tag-warn" th:text="#{'flag.' + ${f.type}}">Flaga</span>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="card placeholder">
+        Mapa, alerty, aktywne zgłoszenia, odmowy i eskalacje pojawią się w etapie 4.
+    </section>
+</main>
+</body>
+</html>
