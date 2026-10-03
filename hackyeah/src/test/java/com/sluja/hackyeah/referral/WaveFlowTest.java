@@ -191,6 +191,34 @@ class WaveFlowTest {
     }
 
     @Test
+    void acceptTakesABedOnlyInTheWinningHospital() {
+        ReferralCreatedResponse response = fileReferral(Referral.Urgency.TIME_CRITICAL);
+        List<DispatchedRequest> wave = response.requests();
+        int winnerBefore = occupiedBeds(wave.get(0).hospitalId());
+        int loserBefore = occupiedBeds(wave.get(1).hospitalId());
+
+        requestResponseService.accept(wave.get(0).requestId());
+
+        assertEquals(winnerBefore + 1, occupiedBeds(wave.get(0).hospitalId()));
+        assertEquals(loserBefore, occupiedBeds(wave.get(1).hospitalId()));
+    }
+
+    @Test
+    void declineDoesNotTakeABed() {
+        ReferralCreatedResponse response = fileReferral(Referral.Urgency.TIME_CRITICAL);
+        Long hospitalId = response.requests().get(0).hospitalId();
+        int before = occupiedBeds(hospitalId);
+
+        requestResponseService.decline(response.requests().get(0).requestId(), ReferralRequest.DeclineReason.NO_BEDS);
+
+        assertEquals(before, occupiedBeds(hospitalId));
+    }
+
+    private int occupiedBeds(Long hospitalId) {
+        return hospitalRepository.findById(hospitalId).orElseThrow().getOccupiedBeds();
+    }
+
+    @Test
     void secondAcceptLosesWithAConflict() {
         ReferralCreatedResponse response = fileReferral(Referral.Urgency.TIME_CRITICAL);
         requestResponseService.accept(response.requests().get(0).requestId());

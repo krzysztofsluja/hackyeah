@@ -2,6 +2,7 @@ package com.sluja.hackyeah.referral.service;
 
 import com.sluja.hackyeah.hospital.entity.Hospital;
 import com.sluja.hackyeah.hospital.repository.HospitalRepository;
+import com.sluja.hackyeah.referral.BedOccupiedEvent;
 import com.sluja.hackyeah.referral.dto.AcceptanceResponse;
 import com.sluja.hackyeah.referral.dto.HospitalContact;
 import com.sluja.hackyeah.referral.dto.InboxEntry;
@@ -12,6 +13,7 @@ import com.sluja.hackyeah.referral.repository.ReferralRepository;
 import com.sluja.hackyeah.referral.repository.ReferralRequestRepository;
 import com.sluja.hackyeah.web.ConflictException;
 import com.sluja.hackyeah.web.NotFoundException;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,13 +27,16 @@ public class RequestResponseService {
     private final ReferralRepository referralRepository;
     private final ReferralRequestRepository requestRepository;
     private final HospitalRepository hospitalRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public RequestResponseService(ReferralRepository referralRepository,
                                   ReferralRequestRepository requestRepository,
-                                  HospitalRepository hospitalRepository) {
+                                  HospitalRepository hospitalRepository,
+                                  ApplicationEventPublisher eventPublisher) {
         this.referralRepository = referralRepository;
         this.requestRepository = requestRepository;
         this.hospitalRepository = hospitalRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /** The open requests waiting on this hospital, newest first. */
@@ -69,6 +74,7 @@ public class RequestResponseService {
         ReferralRequest winner = require(requestId);
         winner.setStatus(ReferralRequest.RequestStatus.ACCEPTED);
         ReferralRequest saved = requestRepository.save(winner);
+        occupyBed(saved.getHospitalId());
 
         return new AcceptanceResponse(
                 toView(saved),
@@ -84,6 +90,17 @@ public class RequestResponseService {
         request.setStatus(ReferralRequest.RequestStatus.DECLINED);
         request.setDeclineReason(reason);
         return toView(requestRepository.save(request));
+    }
+
+    /**
+     * The accepted patient takes a bed straight away, so the ranking and the coordinator map stop
+     * offering it. Capped at total beds - a full hospital may still say yes, it just stays full.
+     */
+    private void occupyBed(Long hospitalId) {
+        hospitalRepository.findById(hospitalId).ifPresent(hospital -> {
+            hospital.setOccupiedBeds(Math.min(hospital.getTotalBeds(), hospital.getOccupiedBeds() + 1));
+            eventPublisher.publishEvent(new BedOccupiedEvent(hospitalId));
+        });
     }
 
     private HospitalContact contactFor(Long hospitalId) {
