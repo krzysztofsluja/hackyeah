@@ -34,7 +34,6 @@ import static com.sluja.hackyeah.referral.WaveTestSupport.referral;
 import static com.sluja.hackyeah.referral.WaveTestSupport.saveHospital;
 import static com.sluja.hackyeah.referral.WaveTestSupport.saveRoute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
