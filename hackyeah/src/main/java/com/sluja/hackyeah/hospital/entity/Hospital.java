@@ -65,6 +65,13 @@ public class Hospital {
     @Column(nullable = false)
     private boolean isolationCapable;
 
+    /**
+     * Institutional on-call line, never a named doctor's number - the person on duty rotates and
+     * naming them would make this personal data. Handed over only after an accept or an escalation.
+     */
+    @Column(name = "duty_phone")
+    private String dutyPhone;
+
     public Integer getAvailableBeds() {
         return totalBeds - occupiedBeds;
     }
