@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Zgłoszenie #' + ${referral.id})}"></head>
+<body>
+<header th:replace="~{layout :: header('doctor')}"></header>
+<main class="page">
+    <div th:replace="~{layout :: flash}"></div>
+
+    <p><a th:href="@{/doctor}">← Nowe zgłoszenie</a></p>
+
+    <div id="referral-status" th:fragment="status">
+
+        <section class="card banner" th:classappend="'banner-' + ${#strings.toLowerCase(referral.status)}">
+            <div>
+                <h1>
+                    Zgłoszenie <span th:text="'#' + ${referral.id}">#1</span> ·
+                    <span th:text="#{'referralStatus.' + ${referral.status}}">Otwarte</span>
+                </h1>
+                <p class="muted">
+                    <span th:text="#{'specialty.' + ${referral.targetSpecialty}}">Neurologia</span>
+                    <th:block th:each="p : ${referral.requiredProcedures}"> · <span th:text="#{'procedure.' + ${p}}">TK</span></th:block>
+                    · <span th:text="#{'urgency.' + ${referral.urgency}}">Czas krytyczny</span>
+                    · <span th:text="#{'patientState.' + ${referral.patientState}}">Stabilny</span>
+                    <th:block th:if="${referral.requiresIsolation}"> · izolacja</th:block>
+                    <th:block th:if="${referral.note}"> · „<span th:text="${referral.note}">opis</span>”</th:block>
+                </p>
+            </div>
+            <div class="banner-side">
+                <div class="muted">od zgłoszenia</div>
+                <div class="big" th:text="${referral.elapsedSeconds / 60} + ':' + ${#numbers.formatInteger(referral.elapsedSeconds % 60, 2)}">0:42</div>
+            </div>
+        </section>
+
+        <section class="card accepted" th:if="${referral.accepted}">
+            <h2>Miejsce potwierdzone</h2>
+            <p class="big" th:text="${referral.acceptedHospital.name}">Szpital Uniwersytecki</p>
+            <p>
+                <span th:text="${referral.acceptedHospital.district}">Prokocim</span> ·
+                dyżurny: <a class="phone" th:href="'tel:' + ${#strings.replace(referral.acceptedHospital.dutyPhone, ' ', '')}"
+                            th:text="${referral.acceptedHospital.dutyPhone}">+48</a>
+            </p>
+            <p class="muted">Zadzwoń bezpośrednio do lekarza dyżurnego i zleć transport.</p>
+        </section>
+
+        <section class="card escalated" th:if="${referral.escalated}">
+            <h2>Brak akceptacji — sprawa przekazana koordynatorowi</h2>
+            <p>Poniżej ranking z numerami dyżurnych i powodami odmów, żeby wiedzieć, gdzie nie dzwonić.</p>
+        </section>
+
+        <section class="card wave" th:if="${referral.open}">
+            <h2>
+                Fala <span th:text="${referral.currentWave}">1</span> — czekamy na odpowiedź
+            </h2>
+            <p class="muted">
+                Do końca fali: <strong th:text="${referral.secondsToWaveDeadline} + ' s'">20 s</strong>.
+                Brak odpowiedzi = automatyczna odmowa i kolejna fala.
+            </p>
+        </section>
+
+        <section class="card">
+            <h2>Ranking dopasowania</h2>
+            <p class="muted" th:if="${#lists.isEmpty(referral.candidates)}">Żaden szpital nie spełnia twardych wymagań.</p>
+            <table class="table" th:unless="${#lists.isEmpty(referral.candidates)}">
+                <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Szpital</th>
+                    <th class="num">Dojazd</th>
+                    <th class="num">Obłożenie</th>
+                    <th class="num">Szansa akceptacji</th>
+                    <th class="num">Wynik</th>
+                    <th>Zapytanie</th>
+                    <th th:if="${referral.escalated}">Dyżurny</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="c : ${referral.candidates}"
+                    th:classappend="${c.requestStatus != null and c.requestStatus.name() == 'ACCEPTED'} ? 'row-accepted'">
+                    <td class="num" th:text="${c.rank}">1</td>
+                    <td>
+                        <strong th:text="${c.name}">Szpital</strong>
+                        <div class="muted small" th:text="${c.district}">Dzielnica</div>
+                    </td>
+                    <td class="num" th:text="${c.travelMinutes} + ' min'">38 min</td>
+                    <td class="num">
+                        <span class="badge" th:classappend="'level-' + ${#strings.toLowerCase(c.occupancyLevel())}"
+                              th:text="${c.occupancyPercent} + '%'">72%</span>
+                    </td>
+                    <td class="num" th:text="${c.acceptancePercent} + '%'">83%</td>
+                    <td class="num">
+                        <div class="score"><span th:style="'width:' + ${c.scorePercent} + '%'"></span></div>
+                        <span class="small" th:text="${c.scorePercent}">29</span>
+                    </td>
+                    <td>
+                        <th:block th:if="${c.contacted}">
+                            <span class="status" th:classappend="'status-' + ${#strings.toLowerCase(c.requestStatus)}"
+                                  th:text="#{'requestStatus.' + ${c.requestStatus}}">Oczekuje</span>
+                            <span class="muted small" th:text="'fala ' + ${c.wave}">fala 1</span>
+                            <div class="small" th:if="${c.declineReason}" th:text="#{'declineReason.' + ${c.declineReason}}">Brak łóżek</div>
+                        </th:block>
+                        <span class="muted small" th:unless="${c.contacted}">w kolejce</span>
+                    </td>
+                    <td th:if="${referral.escalated}" class="nowrap" th:text="${c.dutyPhone}">+48</td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card" th:unless="${#lists.isEmpty(referral.excluded)}">
+            <h2>Wykluczone przez twarde wymagania</h2>
+            <ul class="excluded">
+                <li th:each="e : ${referral.excluded}">
+                    <strong th:text="${e.name}">Szpital Wojewódzki</strong>
+                    <span class="muted small" th:text="${e.district}">Prądnik Biały</span>
+                    <ul class="reasons">
+                        <li th:each="r : ${e.reasons}">
+                            <span th:text="#{'exclusion.' + ${r.code}}">Flaga blokuje procedurę</span><th:block
+                                th:each="k, st : ${r.argKeys}"><span th:text="${(st.first ? ': ' : ', ') + #messages.msg(k)}">: Trombektomia</span></th:block>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </section>
+    </div>
+</main>
+
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        poll(/*[[@{/fragments/referral/{id}(id=${referral.id})}]]*/ '/fragments/referral/1', 'referral-status');
+    });
+</script>
+</body>
+</html>

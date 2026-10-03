@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pl" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout :: head('Lekarz')}"></head>
+<body>
+<header th:replace="~{layout :: header('doctor')}"></header>
+<main class="page">
+    <div th:replace="~{layout :: flash}"></div>
+
+    <h1>Nowe zgłoszenie przekazania</h1>
+    <p class="muted">
+        Zlecasz z: <strong th:text="${origin.name + ' (' + origin.district + ')'}">Szpital Powiatowy</strong>
+        · zgłoszenie bez danych osobowych pacjenta
+    </p>
+
+    <form class="card referral-form" method="post" th:action="@{/doctor/referrals}" th:object="${referralForm}">
+        <div class="field">
+            <label for="targetSpecialty">Specjalność docelowa</label>
+            <select id="targetSpecialty" th:field="*{targetSpecialty}">
+                <option th:each="s : ${specialties}" th:value="${s}" th:text="#{'specialty.' + ${s}}">Neurologia</option>
+            </select>
+            <p class="error" th:if="${#fields.hasErrors('targetSpecialty')}" th:errors="*{targetSpecialty}"></p>
+        </div>
+
+        <fieldset class="field">
+            <legend>Procedura lub sprzęt</legend>
+            <div class="choices">
+                <label th:each="p : ${procedures}" class="choice">
+                    <input type="checkbox" th:field="*{requiredProcedures}" th:value="${p}">
+                    <span th:text="#{'procedure.' + ${p}}">TK</span>
+                </label>
+            </div>
+        </fieldset>
+
+        <fieldset class="field">
+            <legend>Pilność</legend>
+            <div class="choices">
+                <label th:each="u : ${urgencies}" class="choice">
+                    <input type="radio" th:field="*{urgency}" th:value="${u}">
+                    <span th:text="#{'urgency.' + ${u}}">Czas krytyczny</span>
+                </label>
+            </div>
+            <p class="error" th:if="${#fields.hasErrors('urgency')}" th:errors="*{urgency}"></p>
+        </fieldset>
+
+        <fieldset class="field">
+            <legend>Stan pacjenta</legend>
+            <div class="choices">
+                <label th:each="s : ${patientStates}" class="choice">
+                    <input type="radio" th:field="*{patientState}" th:value="${s}">
+                    <span th:text="#{'patientState.' + ${s}}">Stabilny</span>
+                </label>
+            </div>
+            <p class="error" th:if="${#fields.hasErrors('patientState')}" th:errors="*{patientState}"></p>
+        </fieldset>
+
+        <fieldset class="field">
+            <legend>Izolacja</legend>
+            <div class="choices">
+                <label class="choice"><input type="radio" th:field="*{requiresIsolation}" value="false"> Nie</label>
+                <label class="choice"><input type="radio" th:field="*{requiresIsolation}" value="true"> Tak</label>
+            </div>
+        </fieldset>
+
+        <div class="field">
+            <label for="note">Opis <span class="muted">(opcjonalnie, jedno zdanie)</span></label>
+            <input id="note" type="text" maxlength="200" th:field="*{note}" placeholder="np. 72 l., objawy od 2 h">
+            <p class="error" th:if="${#fields.hasErrors('note')}" th:errors="*{note}"></p>
+        </div>
+
+        <button type="submit" class="btn btn-lg">Znajdź miejsce</button>
+    </form>
+
+    <section class="card" th:unless="${#lists.isEmpty(recentReferrals)}">
+        <h2>Ostatnie zgłoszenia</h2>
+        <table class="table">
+            <thead>
+            <tr><th>#</th><th>Specjalność</th><th>Pilność</th><th>Status</th><th class="num">Od zgłoszenia</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="r : ${recentReferrals}">
+                <td><a th:href="@{/doctor/referrals/{id}(id=${r.id})}" th:text="'#' + ${r.id}">#1</a></td>
+                <td th:text="#{'specialty.' + ${r.targetSpecialty}}">Neurologia</td>
+                <td th:text="#{'urgency.' + ${r.urgency}}">Czas krytyczny</td>
+                <td><span class="status" th:classappend="'status-' + ${#strings.toLowerCase(r.status)}"
+                          th:text="#{'referralStatus.' + ${r.status}}">Otwarte</span></td>
+                <td class="num" th:text="${r.elapsedSeconds / 60} + ' min ' + ${r.elapsedSeconds % 60} + ' s'">1 min</td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+</body>
+</html>
