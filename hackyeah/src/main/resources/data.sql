@@ -56,6 +56,16 @@ UPDATE hospitals SET duty_phone = '+48 12 000 00 06' WHERE duty_phone IS NULL AN
 UPDATE hospitals SET duty_phone = '+48 12 000 00 07' WHERE duty_phone IS NULL AND name = 'Szpital Dziecięcy „Podgórze”';
 UPDATE hospitals SET duty_phone = '+48 12 000 00 08' WHERE duty_phone IS NULL AND name = 'Szpital Powiatowy „Solny”';
 
+-- Dzielnica / miejscowość pokazywana w UI obok nazwy szpitala.
+UPDATE hospitals SET district = 'Myślenice' WHERE district IS NULL AND name = 'Szpital Powiatowy „Dolina”';
+UPDATE hospitals SET district = 'Łagiewniki' WHERE district IS NULL AND name = 'Wojewódzki Szpital Specjalistyczny';
+UPDATE hospitals SET district = 'Krowodrza' WHERE district IS NULL AND name = 'Centrum Neurologii i Kardiologii „Wisła”';
+UPDATE hospitals SET district = 'Nowa Huta' WHERE district IS NULL AND name = 'Szpital Miejski „Huta”';
+UPDATE hospitals SET district = 'Bronowice' WHERE district IS NULL AND name = 'Szpital Specjalistyczny „Zachód”';
+UPDATE hospitals SET district = 'Grzegórzki' WHERE district IS NULL AND name = 'Szpital Chorób Zakaźnych „Grzegórzki”';
+UPDATE hospitals SET district = 'Podgórze' WHERE district IS NULL AND name = 'Szpital Dziecięcy „Podgórze”';
+UPDATE hospitals SET district = 'Wieliczka' WHERE district IS NULL AND name = 'Szpital Powiatowy „Solny”';
+
 -- specialties
 INSERT INTO hospital_specialties (hospital_id, specialties)
 SELECT h.id, 'INTERNAL_MEDICINE' FROM hospitals h WHERE h.name = 'Szpital Powiatowy „Dolina”'

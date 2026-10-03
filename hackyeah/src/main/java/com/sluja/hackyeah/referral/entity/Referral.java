@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -58,7 +60,10 @@ public class Referral {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    // Excluded: ReferralRequest points back here, so including it would recurse forever.
     @OneToMany(mappedBy = "referral", cascade = CascadeType.ALL, orphanRemoval = true)
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
     private Set<ReferralRequest> requests;
 
     public enum Urgency {

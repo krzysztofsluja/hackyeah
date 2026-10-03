@@ -12,6 +12,8 @@ public interface ReferralRepository extends JpaRepository<Referral, Long> {
 
     List<Referral> findByStatus(Referral.ReferralStatus status);
 
+    List<Referral> findAllByOrderByIdDesc();
+
     /**
      * First accept wins: a conditional update instead of optimistic locking. Returns 1 for the
      * winner and 0 for everyone who arrives after the referral has left OPEN.

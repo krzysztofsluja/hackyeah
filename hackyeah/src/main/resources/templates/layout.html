@@ -3,14 +3,14 @@
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title th:text="${title} + ' · ' + #{app.name}">Hoscom</title>
+    <title th:text="${title} + ' · ' + #{app.name}">FindMYMed</title>
     <link rel="stylesheet" th:href="@{/css/app.css}">
     <script th:src="@{/js/poll.js}" defer></script>
 </head>
 <body>
 
 <header th:fragment="header(role)" class="topbar">
-    <a class="brand" th:href="@{/}" th:text="#{app.name}">Hoscom</a>
+    <a class="brand" th:href="@{/}" th:text="#{app.name}">FindMYMed</a>
 
     <nav class="roles" aria-label="Przełącznik ról">
         <a th:href="@{/doctor}" th:classappend="${role == 'doctor'} ? 'active'">Lekarz</a>

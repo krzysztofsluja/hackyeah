@@ -20,6 +20,9 @@ public interface ReferralRequestRepository extends JpaRepository<ReferralRequest
     List<ReferralRequest> findByHospitalIdAndStatusOrderBySentAtDesc(Long hospitalId,
                                                                     ReferralRequest.RequestStatus status);
 
+    /** Everything ever sent to the hospital, answered or not - the inbox keeps its history visible. */
+    List<ReferralRequest> findByHospitalIdOrderByIdDesc(Long hospitalId);
+
     boolean existsByReferralIdAndStatus(Long referralId, ReferralRequest.RequestStatus status);
 
     @Query("select coalesce(max(r.wave), 0) from ReferralRequest r where r.referral.id = :referralId")

@@ -3,37 +3,31 @@ package com.sluja.hackyeah.ui;
 import com.sluja.hackyeah.hospital.entity.Procedure;
 import com.sluja.hackyeah.referral.entity.Referral;
 import com.sluja.hackyeah.referral.entity.ReferralRequest;
-import com.sluja.hackyeah.ui.mock.MockDemoBackend;
+import com.sluja.hackyeah.referral.entity.ReferralRequest.DeclineReason;
+import com.sluja.hackyeah.referral.entity.ReferralRequest.RequestStatus;
+import com.sluja.hackyeah.ui.view.CandidateView;
 import com.sluja.hackyeah.ui.view.CoordinatorOverview;
 import com.sluja.hackyeah.ui.view.CoordinatorOverview.DeclineStat;
 import com.sluja.hackyeah.ui.view.HospitalView;
-import com.sluja.hackyeah.ui.view.NewReferral;
 import com.sluja.hackyeah.ui.view.ReferralView;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CoordinatorOverviewTest {
 
-    private static final NewReferral STROKE = new NewReferral("NEUROLOGY", Set.of(Procedure.CT, Procedure.THROMBECTOMY),
-            Referral.Urgency.TIME_CRITICAL, Referral.PatientState.STABLE, false, null);
-
-    private final MutableClock clock = new MutableClock(Instant.parse("2026-10-04T01:00:00Z"), ZoneId.of("Europe/Warsaw"));
-    private MockDemoBackend backend;
-
-    @BeforeEach
-    void setUp() {
-        backend = new MockDemoBackend(clock, DemoProperties.defaults());
-    }
+    private static final List<HospitalView> HOSPITALS = List.of(
+            hospital(1L, "Szpital Powiatowy", 60, 41),
+            hospital(2L, "Szpital Wojewódzki", 100, 95),
+            hospital(3L, "Szpital Uniwersytecki", 100, 72));
 
     @Test
     void emptyStartShowsOnlyTheOverloadedHospital() {
-        CoordinatorOverview overview = overview();
+        CoordinatorOverview overview = CoordinatorOverview.of(HOSPITALS, List.of());
 
         assertThat(overview.alerts()).extracting(HospitalView::name).containsExactly("Szpital Wojewódzki");
         assertThat(overview.activeReferrals()).isEmpty();
@@ -45,17 +39,24 @@ class CoordinatorOverviewTest {
     }
 
     @Test
-    void openReferralIsActiveUntilEscalated() {
-        Long open = backend.createReferral(STROKE);
-        assertThat(overview().activeReferrals()).extracting(ReferralView::id).containsExactly(open);
+    void referralsAreSplitIntoActiveAndEscalatedAndAcceptedOnesLeaveBothLists() {
+        ReferralView open = referral(1L, Referral.ReferralStatus.OPEN);
+        ReferralView escalated = referral(2L, Referral.ReferralStatus.ESCALATED);
+        ReferralView accepted = referral(3L, Referral.ReferralStatus.ACCEPTED);
 
-        backend.decline(3L, backend.inbox(3L).getFirst().requestId(), ReferralRequest.DeclineReason.NO_BEDS);
-        backend.decline(7L, backend.inbox(7L).getFirst().requestId(), ReferralRequest.DeclineReason.NO_BEDS);
-        backend.decline(4L, backend.inbox(4L).getFirst().requestId(), ReferralRequest.DeclineReason.NO_SPECIALIST);
+        CoordinatorOverview overview = CoordinatorOverview.of(HOSPITALS, List.of(open, escalated, accepted));
 
-        CoordinatorOverview overview = overview();
-        assertThat(overview.activeReferrals()).isEmpty();
-        assertThat(overview.escalations()).extracting(ReferralView::id).containsExactly(open);
+        assertThat(overview.activeReferrals()).extracting(ReferralView::id).containsExactly(1L);
+        assertThat(overview.escalations()).extracting(ReferralView::id).containsExactly(2L);
+    }
+
+    @Test
+    void declinesAreCountedPerReasonWithBarsRelativeToTheLargest() {
+        ReferralView escalated = referral(1L, Referral.ReferralStatus.ESCALATED,
+                declined(DeclineReason.NO_BEDS), declined(DeclineReason.NO_BEDS), declined(DeclineReason.NO_SPECIALIST));
+
+        CoordinatorOverview overview = CoordinatorOverview.of(HOSPITALS, List.of(escalated));
+
         assertThat(overview.totalDeclines()).isEqualTo(3);
         assertThat(overview.declines()).filteredOn(d -> d.labelKey().equals("declineReason.NO_BEDS"))
                 .singleElement()
@@ -70,27 +71,36 @@ class CoordinatorOverviewTest {
 
     @Test
     void timeoutsAreCountedSeparately() {
-        backend.createReferral(STROKE);
+        ReferralView open = referral(1L, Referral.ReferralStatus.OPEN,
+                withStatus(RequestStatus.EXPIRED), withStatus(RequestStatus.EXPIRED), withStatus(RequestStatus.PENDING));
 
-        clock.advance(DemoProperties.defaults().waveTimeoutFor(Referral.Urgency.TIME_CRITICAL));
-        backend.expireOverdueRequests();
+        CoordinatorOverview overview = CoordinatorOverview.of(HOSPITALS, List.of(open));
 
-        assertThat(overview().declines()).filteredOn(d -> d.labelKey().equals("requestStatus.EXPIRED"))
+        assertThat(overview.declines()).filteredOn(d -> d.labelKey().equals("requestStatus.EXPIRED"))
                 .singleElement()
-                .satisfies(d -> assertThat(d.count()).isEqualTo(3));
+                .satisfies(d -> assertThat(d.count()).isEqualTo(2));
     }
 
-    @Test
-    void acceptedReferralLeavesBothLists() {
-        backend.createReferral(STROKE);
-        backend.accept(3L, backend.inbox(3L).getFirst().requestId());
-
-        CoordinatorOverview overview = overview();
-        assertThat(overview.activeReferrals()).isEmpty();
-        assertThat(overview.escalations()).isEmpty();
+    private static HospitalView hospital(Long id, String name, int totalBeds, int occupiedBeds) {
+        return new HospitalView(id, name, "Dzielnica", 50.0, 20.0, totalBeds, occupiedBeds,
+                Set.of("NEUROLOGY"), Set.of(Procedure.CT), false, "+48 12 000 00 0" + id, List.of());
     }
 
-    private CoordinatorOverview overview() {
-        return CoordinatorOverview.of(backend.hospitals(), backend.referrals());
+    private static ReferralView referral(Long id, Referral.ReferralStatus status, CandidateView... candidates) {
+        return new ReferralView(id, "Szpital Powiatowy", "NEUROLOGY", Set.of(Procedure.CT),
+                Referral.Urgency.TIME_CRITICAL, Referral.PatientState.STABLE, false, null, status,
+                LocalDateTime.of(2026, 10, 4, 3, 0), 0, 1, 0, null, List.of(candidates), List.of());
+    }
+
+    private static CandidateView declined(DeclineReason reason) {
+        return candidate(ReferralRequest.RequestStatus.DECLINED, reason);
+    }
+
+    private static CandidateView withStatus(RequestStatus status) {
+        return candidate(status, null);
+    }
+
+    private static CandidateView candidate(RequestStatus status, DeclineReason reason) {
+        return new CandidateView(1, 3L, "Szpital Uniwersytecki", "Dzielnica", "+48", 30, 72, 80, 70, 1, status, reason);
     }
 }

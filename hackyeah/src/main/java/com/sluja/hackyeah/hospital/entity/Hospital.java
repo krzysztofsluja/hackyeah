@@ -3,7 +3,9 @@ package com.sluja.hackyeah.hospital.entity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.Set;
 
@@ -36,6 +38,9 @@ public class Hospital {
     @Column(nullable = false)
     private String name;
 
+    /** City district shown next to the name, so people recognise the hospital at a glance. */
+    private String district;
+
     @Column(nullable = false)
     private Double latitude;
 
@@ -59,7 +64,10 @@ public class Hospital {
     @Enumerated(EnumType.STRING)
     private Set<Procedure> procedures;
 
+    // Excluded: HospitalFlag points back here, so including it would recurse forever.
     @OneToMany(mappedBy = "hospital", cascade = CascadeType.ALL, orphanRemoval = true)
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
     private Set<HospitalFlag> flags;
 
     @Column(nullable = false)
