@@ -3,12 +3,113 @@
 <head th:replace="~{layout :: head('Koordynator')}"></head>
 <body>
 <header th:replace="~{layout :: header('coordinator')}"></header>
-<main class="page">
+<main class="page page-wide">
     <div th:replace="~{layout :: flash}"></div>
 
     <h1>Sytuacja w regionie</h1>
 
-    <section class="card">
+    <div class="layout-main-side">
+        <section class="card map-card">
+            <div id="map" th:data-src="@{/coordinator/api/dashboard}" th:data-hospital-url="@{/hospital/}"
+                 aria-label="Mapa szpitali"></div>
+            <ul class="legend">
+                <li><span class="dot dot-low"></span> obłożenie &lt; 75%</li>
+                <li><span class="dot dot-medium"></span> 75–90%</li>
+                <li><span class="dot dot-high"></span> &gt; 90% (alert)</li>
+                <li><span class="dot dot-origin"></span> szpital zlecający</li>
+                <li class="muted small">wielkość = liczba łóżek · kliknij szpital, by zobaczyć szczegóły</li>
+            </ul>
+        </section>
+
+        <aside id="coordinator-actions" th:fragment="actions">
+            <section class="card side-card escalations" th:classappend="${#lists.isEmpty(overview.escalations)} ? 'calm'">
+                <h2>Eskalacje <span class="count count-danger" th:text="${#lists.size(overview.escalations)}">0</span></h2>
+                <p class="muted small" th:if="${#lists.isEmpty(overview.escalations)}">Nic nie czeka na interwencję.</p>
+                <article class="escalation" th:each="r : ${overview.escalations}">
+                    <div class="escalation-head">
+                        <a th:href="@{/doctor/referrals/{id}(id=${r.id})}" th:text="'#' + ${r.id}">#1</a>
+                        <strong th:text="#{'specialty.' + ${r.targetSpecialty}}">Neurologia</strong>
+                        <span class="urgency-tag" th:classappend="'urgency-tag-' + ${#strings.toLowerCase(r.urgency)}"
+                              th:text="#{'urgency.' + ${r.urgency}}">Czas krytyczny</span>
+                    </div>
+                    <div class="muted small">
+                        od <span th:text="${r.originHospitalName}">Szpital Powiatowy</span>
+                        · czeka <span th:text="${r.elapsedSeconds / 60} + ' min'">3 min</span>
+                        · fal: <span th:text="${r.currentWave}">1</span>
+                    </div>
+                    <p class="small" th:if="${#lists.isEmpty(r.candidates)}">Żaden szpital nie spełnia wymagań — szukaj poza regionem.</p>
+                    <ul class="escalation-calls" th:unless="${#lists.isEmpty(r.candidates)}">
+                        <li th:each="c : ${r.candidates}">
+                            <span th:text="${c.name}">Szpital</span>
+                            <a class="nowrap" th:href="'tel:' + ${#strings.replace(c.dutyPhone, ' ', '')}" th:text="${c.dutyPhone}">+48</a>
+                            <span class="muted" th:if="${c.declineReason}" th:text="#{'declineReason.' + ${c.declineReason}}">Brak łóżek</span>
+                            <span class="muted" th:if="${c.declineReason == null and c.contacted}"
+                                  th:text="#{'requestStatus.' + ${c.requestStatus}}">Brak odpowiedzi</span>
+                        </li>
+                    </ul>
+                </article>
+            </section>
+
+            <section class="card side-card alerts" th:classappend="${#lists.isEmpty(overview.alerts)} ? 'calm'">
+                <h2>Alerty obłożenia <span class="count count-danger" th:text="${#lists.size(overview.alerts)}">0</span></h2>
+                <p class="muted small" th:if="${#lists.isEmpty(overview.alerts)}">Żaden szpital nie przekracza 90%.</p>
+                <ul class="alert-list" th:unless="${#lists.isEmpty(overview.alerts)}">
+                    <li th:each="h : ${overview.alerts}">
+                        <a th:href="@{/hospital/{id}(id=${h.id})}" th:text="${h.name}">Szpital Wojewódzki</a>
+                        <span class="badge level-high" th:text="${h.occupancyPercent()} + '%'">94%</span>
+                        <div class="muted small">
+                            wolne łóżka: <span th:text="${h.availableBeds()}">7</span>
+                            <th:block th:each="f : ${h.flags}"> · <span th:text="#{'flag.' + ${f.type}}">Flaga</span></th:block>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </aside>
+    </div>
+
+    <div class="grid-2" id="coordinator-flow" th:fragment="flow">
+        <section class="card">
+            <h2>Aktywne zgłoszenia <span class="count" th:text="${#lists.size(overview.activeReferrals)}">0</span></h2>
+            <p class="muted" th:if="${#lists.isEmpty(overview.activeReferrals)}">Brak zgłoszeń w toku.</p>
+            <table class="table" th:unless="${#lists.isEmpty(overview.activeReferrals)}">
+                <thead>
+                <tr><th>#</th><th>Profil</th><th>Fala</th><th class="num">Czeka</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="r : ${overview.activeReferrals}">
+                    <td><a th:href="@{/doctor/referrals/{id}(id=${r.id})}" th:text="'#' + ${r.id}">#1</a></td>
+                    <td>
+                        <span th:text="#{'specialty.' + ${r.targetSpecialty}}">Neurologia</span>
+                        <div class="small">
+                            <span class="urgency-tag" th:classappend="'urgency-tag-' + ${#strings.toLowerCase(r.urgency)}"
+                                  th:text="#{'urgency.' + ${r.urgency}}">Czas krytyczny</span>
+                            <span class="muted" th:text="'od ' + ${r.originHospitalName}">od Szpital Powiatowy</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span th:text="${r.currentWave}">1</span>
+                        <div class="muted small" th:text="'koniec za ' + ${r.secondsToWaveDeadline} + ' s'">koniec za 20 s</div>
+                    </td>
+                    <td class="num" th:text="${r.elapsedSeconds / 60} + ':' + ${#numbers.formatInteger(r.elapsedSeconds % 60, 2)}">0:42</td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="card">
+            <h2>Odmowy według powodu <span class="count" th:text="${overview.totalDeclines}">0</span></h2>
+            <p class="muted small">Gdzie system się dusi: czego brakuje w regionie.</p>
+            <ul class="bars">
+                <li th:each="d : ${overview.declines}">
+                    <span class="bar-label" th:text="#{${d.labelKey}}">Brak łóżek</span>
+                    <span class="bar"><span th:style="'width:' + ${d.barPercent} + '%'"></span></span>
+                    <span class="bar-count" th:text="${d.count}">0</span>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <section class="card" id="coordinator-hospitals" th:fragment="hospitals">
         <h2>Szpitale</h2>
         <table class="table">
             <thead>
@@ -36,10 +137,19 @@
             </tbody>
         </table>
     </section>
-
-    <section class="card placeholder">
-        Mapa, alerty, aktywne zgłoszenia, odmowy i eskalacje pojawią się w etapie 4.
-    </section>
 </main>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script th:src="@{/js/coordinator-map.js}"></script>
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        poll(/*[[@{/fragments/coordinator/actions}]]*/ '/fragments/coordinator/actions', 'coordinator-actions', 3000);
+        poll(/*[[@{/fragments/coordinator/flow}]]*/ '/fragments/coordinator/flow', 'coordinator-flow', 3000);
+        poll(/*[[@{/fragments/coordinator/hospitals}]]*/ '/fragments/coordinator/hospitals', 'coordinator-hospitals', 3000);
+    });
+</script>
 </body>
 </html>
