@@ -1,5 +1,6 @@
 package com.sluja.hackyeah.referral.entity;
 
+import com.sluja.hackyeah.hospital.entity.Procedure;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,7 +28,8 @@ public class Referral {
     @ElementCollection
     @CollectionTable(name = "referral_procedures", joinColumns = @JoinColumn(name = "referral_id"))
     @Column(name = "procedure")
-    private Set<String> requiredProcedures;
+    @Enumerated(EnumType.STRING)
+    private Set<Procedure> requiredProcedures;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
