@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-HackyeahApplication<hackyeah>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.sluja.hackyeah.HackyeahApplication",
+            "projectName": "hackyeah",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
